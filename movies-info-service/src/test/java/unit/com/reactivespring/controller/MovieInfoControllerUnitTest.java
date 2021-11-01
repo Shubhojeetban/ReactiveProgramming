@@ -1,6 +1,5 @@
 package com.reactivespring.controller;
 
-import com.reactivespring.MoviesInfoController;
 import com.reactivespring.domain.MovieInfo;
 import com.reactivespring.service.MovieInfoService;
 import org.junit.jupiter.api.Test;
@@ -101,6 +100,67 @@ public class MovieInfoControllerUnitTest {
                     assertNotNull(savedMovieInfo);
                     assertNotNull(savedMovieInfo.getMovieInfoId());
                     assertEquals("mockId", savedMovieInfo.getMovieInfoId());
+                });
+    }
+
+    @Test
+    void updateMovieInfo() {
+        MovieInfo movieInfo = new MovieInfo("abc", "Dark Knight Rises Part 2", 2012,
+                List.of("Christan Bale", "Tom Hardy"), LocalDate.parse("2012-07-20"));
+        String id  = "abc";
+        when(movieInfoServiceMock.updateMovieInfo(isA(MovieInfo.class), isA(String.class))).thenReturn(Mono.just(new MovieInfo(id, "Dark Knight Rises Part 2", 2012,
+                List.of("Christan Bale", "Tom Hardy"), LocalDate.parse("2012-07-20"))));
+        webTestClient
+                .put()
+                .uri(MOVIE_INFO_URL+"/{id}", id)
+                .bodyValue(movieInfo)
+                .exchange()
+                .expectStatus()
+                .is2xxSuccessful()
+                .expectBody(MovieInfo.class)
+                .consumeWith(movieInfoEntityExchangeResult -> {
+                    MovieInfo updatedMovieInfo = movieInfoEntityExchangeResult.getResponseBody();
+                    assertNotNull(updatedMovieInfo);
+                    assertNotNull(updatedMovieInfo.getMovieInfoId());
+                    assertEquals( updatedMovieInfo.getMovieInfoId(), movieInfo.getMovieInfoId());  // The updated MovieInfoId should not change
+                    assertEquals("Dark Knight Rises Part 2", updatedMovieInfo.getName());
+                });
+    }
+
+    @Test
+    void deleteMovieInfo() {
+        String id = "abc";
+
+        when(movieInfoServiceMock.deleteMovieInfo(isA(String.class))).thenReturn(Mono.empty());
+
+        webTestClient
+                .delete()
+                .uri(MOVIE_INFO_URL+"/{id}", id)
+                .exchange()
+                .expectStatus()
+                .isNoContent()
+                .expectBody()
+                .isEmpty(); // To check the body is Empty or not
+    }
+
+    @Test
+    void addMovieInfo_validation() {
+        MovieInfo movieInfo = new MovieInfo(null, "", -2012,
+                List.of(""), LocalDate.parse("2012-05-18"));
+
+        webTestClient
+                .post()
+                .uri(MOVIE_INFO_URL)
+                .bodyValue(movieInfo)
+                .exchange()
+                .expectStatus()
+                .isBadRequest()
+                .expectBody(String.class)
+                .consumeWith(stringEntityExchangeResult -> {
+                    String resultBody = stringEntityExchangeResult.getResponseBody();
+                    System.out.println("request Body " + resultBody);
+                    String expectedErrorMessage = "movieInfo.cast must be present,movieInfo.name must be present,movieInfo.year must be positive value";
+                    assertEquals(expectedErrorMessage, resultBody);
                 });
     }
 }

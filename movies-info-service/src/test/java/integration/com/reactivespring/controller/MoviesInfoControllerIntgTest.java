@@ -10,7 +10,9 @@ import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWeb
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -38,11 +40,10 @@ class MoviesInfoControllerIntgTest {
                         List.of("Christan Bale", "Tom Hardy"), LocalDate.parse("2012-07-20")));
 
         // don't use blockLast() in controller in actual only use it in test case
-        movieInfoRepository.saveAll(movieInfos).blockLast(); // blockLast because all the method are asynchronous we don't want to start findAll before saving all the date
-    }
-
-    @AfterEach
-    void tearDown() {
+        movieInfoRepository
+                .deleteAll()
+                .thenMany(movieInfoRepository.saveAll(movieInfos))
+                .blockLast(); // blockLast because all the method are asynchronous we don't want to start findAll before saving all the date
     }
 
     @Test
@@ -73,6 +74,25 @@ class MoviesInfoControllerIntgTest {
                 .is2xxSuccessful()
                 .expectBodyList(MovieInfo.class)
                 .hasSize(3);
+    }
+
+    @Test
+    void getAllMovieInfoByYear() {
+        int year = 2005;
+
+        URI uri = UriComponentsBuilder
+                .fromUriString(MOVIE_INFO_URL)
+                .queryParam("year", year)
+                .build()
+                .toUri();
+
+        webTestClient.get()
+                .uri(uri)
+                .exchange()
+                .expectStatus()
+                .is2xxSuccessful()
+                .expectBodyList(MovieInfo.class)
+                .hasSize(1);
     }
 
     @Test
@@ -134,5 +154,29 @@ class MoviesInfoControllerIntgTest {
                 .isNoContent()
                 .expectBody()
                 .isEmpty(); // To check the body is Empty or not
+    }
+
+    @Test
+    void updateMovieInfo_notFound() {
+        MovieInfo movieInfo = new MovieInfo("abc", "Dark Knight Rises Part 2", 2012,
+                List.of("Christan Bale", "Tom Hardy"), LocalDate.parse("2012-07-20"));
+        String id = "def";
+        webTestClient
+                .put()
+                .uri(MOVIE_INFO_URL + "/{id}", id)
+                .bodyValue(movieInfo)
+                .exchange()
+                .expectStatus()
+                .isNotFound();
+    }
+
+    @Test
+    void getMovieInfoById_notFound() {
+        String id = "def";
+        webTestClient.get()
+                .uri(MOVIE_INFO_URL+"/{id}", id)
+                .exchange()
+                .expectStatus()
+                .isNotFound();
     }
 }
